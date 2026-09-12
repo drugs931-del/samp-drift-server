@@ -2,9 +2,6 @@
 // ===================================
 
 #include <a_samp>
-#include <a_http>
-#include <sscanf2>
-#include <streamer>
 #include "../includes/drift.inc"
 
 #define GAMEMODE_NAME "SA-MP Drift Server 1.0"
@@ -102,40 +99,40 @@ public OnPlayerDisconnect(playerid, reason)
 
 public OnPlayerCommandText(playerid, cmdtext[])
 {
-    new cmd[128], idx = 0;
-    cmd = strtok(cmdtext, idx);
+    new cmd[128];
+    ExtractCmd(cmdtext, cmd, sizeof(cmd));
     
-    if(strcmp(cmd, "/drift", true) == 0)
+    if(!strcmp(cmd, "/drift", true))
     {
         ShowDriftInfo(playerid);
         return 1;
     }
     
-    if(strcmp(cmd, "/stats", true) == 0)
+    if(!strcmp(cmd, "/stats", true))
     {
         ShowPlayerStats(playerid);
         return 1;
     }
     
-    if(strcmp(cmd, "/zones", true) == 0)
+    if(!strcmp(cmd, "/zones", true))
     {
         ShowZonesList(playerid);
         return 1;
     }
     
-    if(strcmp(cmd, "/ranking", true) == 0)
+    if(!strcmp(cmd, "/ranking", true))
     {
         ShowRanking(playerid);
         return 1;
     }
     
-    if(strcmp(cmd, "/level", true) == 0)
+    if(!strcmp(cmd, "/level", true))
     {
         ShowLevelInfo(playerid);
         return 1;
     }
     
-    if(strcmp(cmd, "/help", true) == 0)
+    if(!strcmp(cmd, "/help", true))
     {
         SendClientMessage(playerid, COLOR_INFO, "=== Команды дрифт сервера ===");
         SendClientMessage(playerid, COLOR_INFO, "/drift - информация о дрифте");
@@ -143,29 +140,56 @@ public OnPlayerCommandText(playerid, cmdtext[])
         SendClientMessage(playerid, COLOR_INFO, "/zones - список дрифт-зон");
         SendClientMessage(playerid, COLOR_INFO, "/ranking - таблица рейтинга");
         SendClientMessage(playerid, COLOR_INFO, "/level - информация об уровне");
+        SendClientMessage(playerid, COLOR_INFO, "/adddrift [ID] [очки] - добавить очки (админ)");
         return 1;
     }
     
-    if(strcmp(cmd, "/adddrift", true) == 0)
+    if(!strcmp(cmd, "/adddrift", true))
     {
         if(IsPlayerAdmin(playerid))
         {
-            new targetid, points, tmp[32];
-            tmp = strtok(cmdtext, idx);
-            targetid = strval(tmp);
-            tmp = strtok(cmdtext, idx);
-            points = strval(tmp);
+            new params[256], targetid, points;
+            ExtractParams(cmdtext, params, sizeof(params));
             
-            if(IsPlayerConnected(targetid))
+            if(GetIntValue(params, 0, targetid) && GetIntValue(params, 1, points))
             {
-                AddDriftPoints(targetid, points);
-                SendClientMessage(playerid, COLOR_SUCCESS, "Очки добавлены!");
+                if(IsPlayerConnected(targetid))
+                {
+                    AddDriftPoints(targetid, points);
+                    SendClientMessage(playerid, COLOR_SUCCESS, "Очки добавлены!");
+                }
+                else
+                    SendClientMessage(playerid, COLOR_ERROR, "Игрок не найден!");
             }
             else
-                SendClientMessage(playerid, COLOR_ERROR, "Игрок не найден!");
+                SendClientMessage(playerid, COLOR_ERROR, "Использование: /adddrift [ID] [очки]");
         }
         else
             SendClientMessage(playerid, COLOR_ERROR, "Недостаточно прав!");
+        return 1;
+    }
+    
+    if(!strcmp(cmd, "/resetstats", true))
+    {
+        if(IsPlayerAdmin(playerid))
+        {
+            new params[256], targetid;
+            ExtractParams(cmdtext, params, sizeof(params));
+            
+            if(strlen(params) > 0)
+            {
+                targetid = strval(params);
+                if(IsPlayerConnected(targetid))
+                {
+                    ResetPlayerStats(targetid);
+                    SendClientMessage(playerid, COLOR_SUCCESS, "Статистика сброшена!");
+                }
+                else
+                    SendClientMessage(playerid, COLOR_ERROR, "Игрок не найден!");
+            }
+            else
+                SendClientMessage(playerid, COLOR_ERROR, "Использование: /resetstats [ID]");
+        }
         return 1;
     }
     
@@ -329,11 +353,6 @@ stock CreateDriftZone(Float:x, Float:y, Float:z, Float:radius, name[], points)
     gZoneData[idx][zoneRecord] = 0;
     format(gZoneData[idx][zoneName], 32, name);
     
-    // Создание метки зоны
-    new label[64];
-    format(label, sizeof(label), "{FFFF00}%s\n{FFFFFF}Дрифт Зона", name);
-    gZoneData[idx][zoneLabel] = CreateDynamic3DTextLabel(label, 0xFFFFFFFF, x, y, z+5, 100.0);
-    
     gZoneCount++;
     return idx;
 }
@@ -348,7 +367,7 @@ stock ShowDriftInfo(playerid)
         "Ваши очки: {FFFF00}%d{FFFFFF}\n"
         "Уровень: {00FF00}%d{FFFFFF}\n"
         "Опыт: {00FFFF}%d/%d{FFFFFF}\n"
-        "Деньги: {00FF00}${%d}{FFFFFF}\n"
+        "Деньги: {00FF00}$%d{FFFFFF}\n"
         "Текущее комбо: {FF0000}%d{FFFFFF}\n\n"
         "Используйте дрифт-машину и выполняйте трюки!",
         gPlayerDriftPoints[playerid],
@@ -365,12 +384,12 @@ stock ShowPlayerStats(playerid)
 {
     new msg[512];
     format(msg, sizeof(msg),
-        "=== СТАТИСТИКА ==="
-        "\nОчки дрифта: %d"
-        "\nУровень: %d"
-        "\nОпыт: %d"
-        "\nДеньги: $%d"
-        "\nМаксимальное комбо: %.0f",
+        "=== СТАТИСТИКА ===\n"
+        "Очки дрифта: %d\n"
+        "Уровень: %d\n"
+        "Опыт: %d\n"
+        "Деньги: $%d\n"
+        "Максимальное комбо: %.0f",
         gPlayerDriftPoints[playerid],
         gPlayerLevel[playerid],
         gPlayerExp[playerid],
@@ -449,6 +468,16 @@ stock SavePlayerData(playerid)
     // Здесь будет сохранение в файл
 }
 
+stock ResetPlayerStats(playerid)
+{
+    gPlayerDriftPoints[playerid] = 0;
+    gPlayerLevel[playerid] = START_LEVEL;
+    gPlayerExp[playerid] = 0;
+    gPlayerMoney[playerid] = 0;
+    gPlayerCombo[playerid] = 0;
+    gPlayerMaxCombo[playerid] = 0.0;
+}
+
 // ===== UTILITY FUNCTIONS =====
 
 stock Float:GetVehicleSpeed(vehicleid)
@@ -466,19 +495,72 @@ stock Float:GetDistanceBetweenPoints(Float:x1, Float:y1, Float:z1, Float:x2, Flo
     return floatsqrt((dx * dx) + (dy * dy) + (dz * dz));
 }
 
-stock strtok(const string[], &index)
-{
-    new length = strlen(string);
-    while ((index < length) && (string[index] <= ' ')) index++;
-    new offset = index;
-    new result[128];
-    while ((index < length) && (string[index] > ' ')) result[index - offset] = string[index++];
-    return result;
-}
-
 stock bool:IsPlayerAdmin(playerid)
 {
     return (IsPlayerAdmin(playerid) || gPlayerLevel[playerid] >= 30);
+}
+
+// Парсинг команды
+stock ExtractCmd(const cmdtext[], cmd[], cmdlen)
+{
+    new idx = 0;
+    if(cmdtext[0] == '/') idx = 1;
+    
+    new cmdidx = 0;
+    while(idx < strlen(cmdtext) && cmdtext[idx] != ' ' && cmdidx < cmdlen - 1)
+    {
+        cmd[cmdidx++] = cmdtext[idx++];
+    }
+    cmd[cmdidx] = EOS;
+}
+
+// Парсинг параметров команды
+stock ExtractParams(const cmdtext[], params[], paramslen)
+{
+    new idx = 0;
+    while(idx < strlen(cmdtext) && cmdtext[idx] != ' ') idx++;
+    while(idx < strlen(cmdtext) && cmdtext[idx] == ' ') idx++;
+    
+    new paramsidx = 0;
+    while(idx < strlen(cmdtext) && paramsidx < paramslen - 1)
+    {
+        params[paramsidx++] = cmdtext[idx++];
+    }
+    params[paramsidx] = EOS;
+}
+
+// Получить целое число из строки по позиции
+stock GetIntValue(const str[], pos, &result)
+{
+    new idx = 0, count = 0, value = 0, negative = 0;
+    
+    while(idx < strlen(str))
+    {
+        while(str[idx] == ' ') idx++;
+        if(!str[idx]) break;
+        
+        if(count == pos)
+        {
+            if(str[idx] == '-')
+            {
+                negative = 1;
+                idx++;
+            }
+            
+            while(str[idx] >= '0' && str[idx] <= '9')
+            {
+                value = value * 10 + (str[idx] - '0');
+                idx++;
+            }
+            
+            result = negative ? -value : value;
+            return 1;
+        }
+        
+        while(str[idx] != ' ' && str[idx]) idx++;
+        count++;
+    }
+    return 0;
 }
 
 // ===== CALLBACKS =====
