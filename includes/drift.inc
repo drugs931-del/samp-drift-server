@@ -9,9 +9,8 @@
 #include <a_samp>
 
 // ===== CONFIGURATION CONSTANTS =====
-#define MAX_ZONES 15
-#define MAX_PLAYERS 500
-#define MAX_PLAYER_NAME 24
+#define DRIFT_MAX_ZONES 15
+#define DRIFT_MAX_PLAYER_NAME 24
 
 #define BASE_DRIFT_POINTS 10
 #define COMBO_MULTIPLIER 1.5
@@ -69,8 +68,6 @@
 #define LOG_ACTIONS 1
 
 #define INVALID_ZONE_ID -1
-#define INVALID_PLAYER_ID -1
-#define INVALID_DRIFT_ID -1
 
 // ===== ENUMERATORS =====
 enum DriftZoneData
@@ -82,39 +79,29 @@ enum DriftZoneData
     Float:zoneRadius,
     zoneName[32],
     zonePoints,
-    zoneRecord,
-    zoneLabel
+    zoneRecord
 };
 
 enum PlayerDriftData
 {
     playerID,
-    playerName[MAX_PLAYER_NAME],
+    playerName[DRIFT_MAX_PLAYER_NAME],
     playerLevel,
     playerExp,
     playerDriftPoints,
     playerMoney,
     playerCombo,
     Float:playerMaxCombo,
-    playerZoneRecord[MAX_ZONES],
+    playerZoneRecord[DRIFT_MAX_ZONES],
     playerJoinTime,
     playerLastSave
 };
 
-enum DriftStats
-{
-    statsDriftPoints,
-    statsLevel,
-    statsExp,
-    statsMoney,
-    statsCombo,
-    statsZoneEnters,
-    statsZoneExits,
-    statsSessionTime
-};
-
 // ===== CALLBACK FUNCTIONS =====
 
+forward CheckDrift();
+forward UpdateRanking();
+forward AutoSaveData();
 forward OnPlayerDrifting(playerid, Float:angle, Float:speed, points);
 forward OnPlayerEnterDriftZone(playerid, zoneid);
 forward OnPlayerExitDriftZone(playerid, zoneid);
@@ -136,7 +123,8 @@ stock Float:GetDistanceBetweenPoints(Float:x1, Float:y1, Float:z1, Float:x2, Flo
     new Float:dx = x2 - x1;
     new Float:dy = y2 - y1;
     new Float:dz = z2 - z1;
-    return floatsqrt((dx * dx) + (dy * dy) + (dz * dz));
+    new Float:distance = floatpower((dx * dx) + (dy * dy) + (dz * dz), 0.5);
+    return distance;
 }
 
 stock FormatNumber(number, output[], len)
